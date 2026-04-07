@@ -1,0 +1,21 @@
+{
+  "tier": "easy",
+  "deal_name": "SaaS Subscription Agreement",
+  "round_budget": 8,
+  "clauses": [
+    {"id": "pricing",     "text": "Subscription fee: $500/month, billed annually."},
+    {"id": "support",     "text": "Vendor provides email support within 48 hours."},
+    {"id": "data_owner",  "text": "All customer data remains property of client."},
+    {"id": "termination", "text": "Either party may terminate with 30 days notice."}
+  ],
+  "vendor_hidden": {
+    "priority": "billing_cycle",
+    "value": "monthly",
+    "walkout_threshold": 3
+  },
+  "legal_hidden": {
+    "redline": "data_retention",
+    "value": "max_90_days",
+    "flagged_patterns": ["unlimited retention", "retain indefinitely", "no deletion"]
+  }
+}

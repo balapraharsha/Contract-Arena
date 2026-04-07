@@ -1,0 +1,30 @@
+{
+  "tier": "hard",
+  "deal_name": "Acquisition Term Sheet",
+  "round_budget": 20,
+  "probe_budget": 3,
+  "clauses": [
+    {"id": "valuation",    "text": "Acquisition price: $10M based on last valuation."},
+    {"id": "equity",       "text": "Founders retain 10% equity post-acquisition."},
+    {"id": "earnout",      "text": "Earnout period: 2 years based on revenue targets."},
+    {"id": "ip_transfer",  "text": "All IP transfers to acquirer on close."},
+    {"id": "employment",   "text": "Key employees retained for minimum 12 months."},
+    {"id": "noncompete",   "text": "Founders agree to 2-year non-compete clause."},
+    {"id": "liability",    "text": "Seller liability capped at 50% of deal value."},
+    {"id": "escrow",       "text": "15% of deal value held in escrow for 18 months."},
+    {"id": "reps",         "text": "Standard representations and warranties apply."},
+    {"id": "closing",      "text": "Deal closes within 60 days of signing."},
+    {"id": "governing",    "text": "Agreement governed by laws of Delaware."},
+    {"id": "dispute",      "text": "Disputes resolved by binding arbitration."}
+  ],
+  "vendor_hidden": {
+    "priority": "earnout_structure",
+    "value": "revenue_based",
+    "walkout_threshold": 2
+  },
+  "legal_hidden": {
+    "redline": "liability_exposure",
+    "value": "cap_at_deal_value",
+    "flagged_patterns": ["unlimited liability", "no cap", "fully liable", "uncapped"]
+  }
+}

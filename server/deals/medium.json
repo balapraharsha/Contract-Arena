@@ -1,0 +1,25 @@
+{
+  "tier": "medium",
+  "deal_name": "B2B Supply Contract",
+  "round_budget": 15,
+  "clauses": [
+    {"id": "pricing",      "text": "Unit price: $120 per item, minimum order 500 units."},
+    {"id": "delivery",     "text": "Delivery within 30 business days of order."},
+    {"id": "liability",    "text": "Vendor liability limited to contract value."},
+    {"id": "ip",           "text": "All IP developed under contract owned by client."},
+    {"id": "confidential", "text": "Both parties agree to 3-year NDA."},
+    {"id": "payment",      "text": "Payment due within 60 days of delivery."},
+    {"id": "warranty",     "text": "12-month warranty on all delivered items."},
+    {"id": "dispute",      "text": "Disputes resolved by arbitration in Mumbai."}
+  ],
+  "vendor_hidden": {
+    "priority": "payment_terms",
+    "value": "net_30",
+    "walkout_threshold": 3
+  },
+  "legal_hidden": {
+    "redline": "unlimited_liability",
+    "value": "cap_at_contract_value",
+    "flagged_patterns": ["unlimited liability", "fully liable", "no cap", "uncapped"]
+  }
+}
