@@ -1,12 +1,9 @@
 import os
-import time
+import sys
 from openai import OpenAI
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# config
+# ── config ───────────────────────────────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN     = os.getenv("HF_TOKEN")
@@ -16,7 +13,7 @@ SUCCESS_THRESHOLD = 0.5
 
 TIERS = ["easy", "medium", "hard"]
 
-# logging 
+# ── logging — stdout only for required lines ──────────────────────────────
 def log_start(task, model):
     print(f"[START] task={task} env=contractarena model={model}", flush=True)
 
@@ -30,7 +27,10 @@ def log_end(success, steps, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={success_str} steps={steps} rewards={rewards_str}", flush=True)
 
-# env helpers 
+def debug(msg):
+    print(f"[DEBUG] {msg}", file=sys.stderr, flush=True)
+
+# ── env helpers ───────────────────────────────────────────────────────────
 def env_reset():
     r = requests.post(f"{SERVER_URL}/reset", json={})
     r.raise_for_status()
@@ -69,6 +69,7 @@ Respond ONLY with valid JSON matching this schema:
 }"""
 
 def get_action(client, obs: dict, history: list) -> dict:
+    import json
     user_msg = f"""Current clause: {obs['clause_id']}
 Clause text: {obs['clause_text']}
 Vendor response: {obs['vendor_response']}
@@ -91,14 +92,20 @@ What is your next action? Respond with JSON only."""
             temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        import json
-        return json.loads(raw.strip())
+        # strip markdown fences if model adds them
+        if "```" in raw:
+            parts = raw.split("```")
+            for part in parts:
+                part = part.strip()
+                if part.startswith("json"):
+                    part = part[4:].strip()
+                try:
+                    return json.loads(part)
+                except Exception:
+                    continue
+        return json.loads(raw)
     except Exception as e:
-        print(f"[DEBUG] model error: {e}", flush=True)
+        debug(f"model error: {e}")
         return {
             "action_type": "PROBE",
             "clause_id": obs["clause_id"],
@@ -112,8 +119,8 @@ def run_tier(client, tier: str):
     rewards = []
     history = []
     steps_taken = 0
-    score = 0.0
     success = False
+    score = 0.0
 
     try:
         result = env_reset()
@@ -129,7 +136,7 @@ def run_tier(client, tier: str):
             try:
                 result = env_step(action)
                 obs = result["observation"]
-                reward = result.get("reward") or 0.0
+                reward = float(result.get("reward") or 0.0)
                 done = result.get("done", False)
                 error = None
             except Exception as e:
@@ -149,12 +156,13 @@ def run_tier(client, tier: str):
             if done:
                 break
 
-        score = max(rewards) if rewards else 0.0
+        max_possible = 3.0
+        score = sum(rewards) / max_possible
         score = round(min(max(score, 0.0), 1.0), 2)
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
-        print(f"[DEBUG] tier error: {e}", flush=True)
+        debug(f"tier error: {e}")
 
     finally:
         log_end(success=success, steps=steps_taken, rewards=rewards)
@@ -167,19 +175,13 @@ def main():
         raise ValueError("HF_TOKEN environment variable is required")
 
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
-    print(f"[DEBUG] Running ContractArena inference on {len(TIERS)} tiers", flush=True)
-    print(f"[DEBUG] Server: {SERVER_URL} | Model: {MODEL_NAME}", flush=True)
+    debug(f"Running ContractArena inference on {len(TIERS)} tiers")
+    debug(f"Server: {SERVER_URL} | Model: {MODEL_NAME}")
 
-    all_scores = {}
     for tier in TIERS:
-        print(f"\n{'='*50}", flush=True)
-        print(f"[DEBUG] Starting tier: {tier}", flush=True)
+        debug(f"Starting tier: {tier}")
         score = run_tier(client, tier)
-        all_scores[tier] = score
-        print(f"[DEBUG] Tier {tier} final score: {score}", flush=True)
-
-    print(f"\n{'='*50}", flush=True)
-    print(f"[DEBUG] All scores: {all_scores}", flush=True)
+        debug(f"Tier {tier} final score: {score}")
 
 
 if __name__ == "__main__":
