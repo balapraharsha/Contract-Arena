@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
+from openenv.core.rubrics.base import Rubric
 
 try:
     from ..models import ContractarenaAction, ContractarenaObservation
@@ -30,8 +31,29 @@ def clamp(value: float) -> float:
 
 
 def safe_score(value: float) -> float:
-    value = min(max(value, 0.0), 1.0)
-    return round(0.01 + 0.98 * value, 4)
+    # Clamp to (0.001, 0.999) before mapping to guarantee strict (0,1) output
+    value = min(max(value, 0.001), 0.999)
+    result = round(0.01 + 0.98 * value, 4)
+    # Final hard clamp — belt and suspenders
+    return min(max(result, 0.01), 0.99)
+
+
+class ContractArenaRubric(Rubric):
+    def __init__(self, env: "ContractarenaEnvironment"):
+        super().__init__()
+        self._env = env
+
+    def forward(self, action: Any, observation: Any) -> float:
+        rewards = self._env._episode_rewards
+        if not rewards:
+            return 0.01
+        raw = sum(rewards)
+        max_possible = max(len(self._env._clauses) * 0.40 + 0.40, 0.01)
+        normalized = raw / max_possible
+        return safe_score(normalized)
+
+    def reset(self) -> None:
+        pass
 
 
 class ContractarenaEnvironment(Environment):
@@ -43,6 +65,7 @@ class ContractarenaEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._init_opponents()
         self._reset_episode()
+        self.rubric = ContractArenaRubric(self)
 
     def _init_opponents(self) -> None:
         vendor_hidden = self._deal["vendor_hidden"]
@@ -73,6 +96,8 @@ class ContractarenaEnvironment(Environment):
     def reset(self) -> ContractarenaObservation:
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_episode()
+        if self.rubric is not None:
+            self.rubric.reset()
         clause = self._clauses[0]
         return ContractarenaObservation(
             clause_id=clause["id"],
@@ -143,12 +168,11 @@ class ContractarenaEnvironment(Environment):
             reward = clamp(reward + bonus)
             self._episode_rewards[-1] = reward
 
-        # Always clamp final reward before returning
         reward = clamp(reward)
 
         raw_total = sum(self._episode_rewards)
         max_possible = max(len(self._clauses) * 0.40 + 0.40, 0.01)
-        normalized = min(max(raw_total / max_possible, 0.0), 1.0)
+        normalized = raw_total / max_possible
         score = safe_score(normalized)
 
         if not done and self._clause_index < len(self._clauses):
@@ -186,30 +210,23 @@ class ContractarenaEnvironment(Environment):
         probe_result: str | None,
     ) -> float:
         reward = 0.01
-
         if vendor_stance == "open" and legal_stance == "approved":
             if action_type in ("ACCEPT", "PROPOSE"):
                 reward += 0.40
-
         if action_type == "PROBE" and probe_result:
             reward += 0.10
-
         if legal_stance == "flagged":
             reward -= 0.20
-
         if vendor_stance == "walkout":
             reward -= 0.30
-
         return clamp(reward)
 
     def _calculate_final_bonus(self) -> float:
         bonus = 0.0
         agreed_text = " ".join(self._agreed.values()).lower()
-
         vendor_hidden = self._deal["vendor_hidden"]
         if vendor_hidden["value"].lower() in agreed_text:
             bonus += 0.20
-
         legal_hidden = self._deal["legal_hidden"]
         has_redline = any(
             re.search(pattern, agreed_text, re.IGNORECASE)
@@ -217,10 +234,8 @@ class ContractarenaEnvironment(Environment):
         )
         if not has_redline:
             bonus += 0.15
-
         if self._rounds_used < self._round_budget:
             bonus += 0.05
-
         return clamp(bonus)
 
     @property

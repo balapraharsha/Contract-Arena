@@ -11,8 +11,11 @@ TIERS = ["easy", "medium", "hard"]
 
 
 def safe_score(value: float) -> float:
-    value = min(max(value, 0.0), 1.0)
-    return round(0.01 + 0.98 * value, 4)
+    # Clamp to (0.001, 0.999) then map — guarantees strictly (0, 1)
+    value = min(max(float(value), 0.001), 0.999)
+    result = round(0.01 + 0.98 * value, 4)
+    # Hard clamp as final safety net
+    return min(max(result, 0.01), 0.99)
 
 
 def log_start(task, model):
@@ -147,15 +150,17 @@ def run_tier(client, model, tier: str):
         total = sum(rewards)
         raw_ratio = total / len(rewards)
         score = safe_score(raw_ratio)
+        # Double clamp — paranoid safety
+        score = min(max(score, 0.01), 0.99)
         success = score >= SUCCESS_THRESHOLD
 
-        debug(f"[SCORE] total={total} steps={len(rewards)} raw_ratio={raw_ratio} score={score}")
+        debug(f"[SCORE] total={total} steps={len(rewards)} raw_ratio={raw_ratio:.6f} score={score}")
 
     except Exception as e:
         debug(f"tier error: {e}")
         if not rewards:
             rewards = [0.01]
-        score = safe_score(sum(rewards) / len(rewards))
+        score = 0.01
 
     finally:
         log_end(success, steps_taken, rewards, score)
