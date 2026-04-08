@@ -1,0 +1,4 @@
+openenv-core
+openai
+requests
+python-dotenv
