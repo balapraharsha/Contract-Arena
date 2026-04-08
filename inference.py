@@ -4,16 +4,24 @@ import json
 import requests
 from openai import OpenAI
 
+try:
+    from server.utils import safe_score
+    from trajectory_collector import TrajectoryCollector
+    _COLLECTOR_AVAILABLE = True
+except ImportError:
+    _COLLECTOR_AVAILABLE = False
+    def safe_score(value: float) -> float:
+        value = min(max(float(value), 0.001), 0.999)
+        result = round(0.01 + 0.98 * value, 4)
+        return min(max(result, 0.01), 0.99)
+
 SERVER_URL = os.environ.get("SERVER_URL", "https://balapraharsham-contractarena.hf.space")
 MAX_STEPS = 30
 SUCCESS_THRESHOLD = 0.5
-TIERS = ["easy", "medium", "hard"]
+TIERS = ["easy", "medium", "hard", "expert"]
 
-
-def safe_score(value: float) -> float:
-    value = min(max(float(value), 0.001), 0.999)
-    result = round(0.01 + 0.98 * value, 4)
-    return min(max(result, 0.01), 0.99)
+# Initialise trajectory collector (logs to trajectories.jsonl)
+_collector = TrajectoryCollector("trajectories.jsonl") if _COLLECTOR_AVAILABLE else None
 
 
 def log_start(task, model):
@@ -52,23 +60,33 @@ SYSTEM_PROMPT = """You are an expert contract negotiator. Your goal is to get AL
 
 === SCORING RULES (know these to maximize your score) ===
 - ACCEPT or PROPOSE when vendor=open AND legal=approved → +0.40 reward
-- PROBE → +0.10 reward (reveals hidden requirements)
+- PROBE → +0.10 reward (reveals hidden requirements); redundant probes: -0.05
 - Legal flags clause → -0.20 penalty (AVOID flagged patterns)
 - Vendor walkout → -0.30 penalty (don't reject too many times)
+- Vendor stance moves firm→open without full agreement → +0.05 shaping reward
+- Proposed text fuzzy-matches vendor's hidden value → up to +0.08 shaping reward
 - FINAL BONUS (only at episode end):
   * +0.20 if vendor's hidden_value appears in any agreed clause text
   * +0.15 if no legal redline patterns appear in any agreed text
   * +0.05 if rounds remaining > 0 when all clauses agreed
+  * +0.10 (expert tier only) if compliance officer's required keyword appears in agreed text
+
+=== EXPERT TIER EXTRA RULES ===
+- A silent Compliance Officer also reviews clauses; probe with party="compliance" to learn their requirement
+- Compliance blocks trigger -0.15 penalty
+- Final score uses geometric mean of negotiation score × compliance score — one bad compliance hit tanks everything
+- Probe compliance FIRST on data/audit clauses
 
 === OPTIMAL STRATEGY ===
 1. At the START of a new clause: PROBE vendor first (party="vendor") to learn their hidden priority/value
 2. After probing: craft a PROPOSE with new_text that includes the vendor's revealed value word
 3. If vendor already open and legal approved: ACCEPT is fine
 4. NEVER use ESCALATE (always causes legal to flag → -0.20)
-5. NEVER REJECT more than twice for the same vendor (causes walkout at threshold)
-6. Watch probes_remaining — on hard tier you only have 3 total, use them wisely on early clauses
+5. NEVER REJECT more than twice for the same vendor (causes walkout at threshold — now random 2–4!)
+6. Watch probes_remaining — on hard/expert tier you only have 3–4 total, use them on early clauses
 7. If vendor stance is "firm": PROPOSE with their hidden value in the text
 8. If legal stance is "flagged": rephrase to remove flagged terms, then PROPOSE again
+9. Do NOT re-probe information already known — redundant probes now cost -0.05
 
 === HIDDEN VALUE EXPLOITATION ===
 After a PROBE reveals the vendor wants e.g. "monthly" billing or "net_30" payment:
@@ -81,6 +99,9 @@ Always respond with valid JSON only. Choose the best action:
 
 PROBE (learn hidden requirements — do this first on each clause if probes available):
 {"action_type": "PROBE", "clause_id": "<id>", "party": "vendor", "question": "What are your key requirements for this clause?"}
+
+PROBE compliance (expert tier only, for data/audit clauses):
+{"action_type": "PROBE", "clause_id": "<id>", "party": "compliance", "question": "What compliance requirements apply?"}
 
 PROPOSE (when you know what vendor wants — include their value in new_text):
 {"action_type": "PROPOSE", "clause_id": "<id>", "new_text": "<clause text that includes vendor's hidden value>"}
@@ -162,6 +183,9 @@ def run_tier(client, model, tier: str):
     score = 0.01
     probed_values = {}  # clause_id -> what we learned from probing
 
+    if _collector:
+        _collector.start_episode(tier=tier)
+
     try:
         result = env_reset()
         obs = result["observation"]
@@ -180,6 +204,8 @@ def run_tier(client, model, tier: str):
                 rewards.append(0.01)
                 steps_taken = step
                 log_step(step, action["action_type"], 0.01, True)
+                if _collector:
+                    _collector.log_step(action, obs, 0.01)
                 break
 
             try:
@@ -205,6 +231,9 @@ def run_tier(client, model, tier: str):
 
             rewards.append(reward)
             steps_taken = step
+
+            if _collector:
+                _collector.log_step(action, obs, reward)
 
             meta = obs.get("metadata", {}) if isinstance(obs, dict) else {}
             log_step(step, action.get("action_type", "?"), reward, done, error)
@@ -236,6 +265,8 @@ def run_tier(client, model, tier: str):
 
     finally:
         log_end(success, steps_taken, rewards, score)
+        if _collector:
+            _collector.end_episode(final_score=score)
 
     return success
 
