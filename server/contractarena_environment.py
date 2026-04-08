@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 from uuid import uuid4
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
@@ -25,6 +25,10 @@ def load_deal(tier: str) -> Dict[str, Any]:
         return json.load(f)
 
 
+def clamp(value: float) -> float:
+    return round(min(max(value, 0.01), 0.99), 4)
+
+
 class ContractarenaEnvironment(Environment):
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
 
@@ -32,14 +36,12 @@ class ContractarenaEnvironment(Environment):
         self._tier = tier
         self._deal = load_deal(tier)
         self._state = State(episode_id=str(uuid4()), step_count=0)
-
         self._init_opponents()
         self._reset_episode()
 
     def _init_opponents(self) -> None:
         vendor_hidden = self._deal["vendor_hidden"]
         legal_hidden = self._deal["legal_hidden"]
-
         self._vendor = VendorAgent(
             hidden_priority=vendor_hidden["priority"],
             hidden_value=vendor_hidden["value"],
@@ -55,20 +57,17 @@ class ContractarenaEnvironment(Environment):
         self._clauses = list(self._deal["clauses"])
         self._clause_index = 0
         self._agreed = {}
-
         self._round_budget = int(self._deal["round_budget"])
         self._probe_budget = int(self._deal.get("probe_budget", 999))
         self._probes_used = 0
         self._rounds_used = 0
         self._episode_rewards = []
-
         self._vendor.reset()
         self._legal.reset()
 
     def reset(self) -> ContractarenaObservation:
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_episode()
-
         clause = self._clauses[0]
         return ContractarenaObservation(
             clause_id=clause["id"],
@@ -82,12 +81,12 @@ class ContractarenaEnvironment(Environment):
             clauses_total=len(self._clauses),
             tier=self._tier,
             done=False,
-            reward=0.0,
+            reward=0.01,
             metadata={
                 "vendor_stance": "open",
                 "legal_stance": "approved",
                 "agreed_clauses": [],
-                "episode_score": 0.0,
+                "episode_score": 0.01,
                 "probes_remaining": self._probe_budget,
             },
         )
@@ -141,7 +140,7 @@ class ContractarenaEnvironment(Environment):
 
         raw_total = sum(self._episode_rewards)
         max_possible = len(self._clauses) * 0.40 + 0.40
-        score = round(min(max(raw_total / max_possible, 0.0), 1.0), 4)
+        score = clamp(raw_total / max_possible)
 
         if not done and self._clause_index < len(self._clauses):
             next_clause = self._clauses[self._clause_index]
@@ -160,7 +159,7 @@ class ContractarenaEnvironment(Environment):
             clauses_total=len(self._clauses),
             tier=self._tier,
             done=done,
-            reward=round(score if done else reward, 4),
+            reward=clamp(score if done else reward),
             metadata={
                 "vendor_stance": vendor_stance,
                 "legal_stance": legal_stance,
@@ -177,7 +176,7 @@ class ContractarenaEnvironment(Environment):
         legal_stance: str,
         probe_result: str | None,
     ) -> float:
-        reward = 0.0
+        reward = 0.01
 
         if vendor_stance == "open" and legal_stance == "approved":
             if action_type in ("ACCEPT", "PROPOSE"):
@@ -218,4 +217,3 @@ class ContractarenaEnvironment(Environment):
     @property
     def state(self) -> State:
         return self._state
- 
