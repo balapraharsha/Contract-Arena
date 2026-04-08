@@ -22,17 +22,18 @@ def log_start(task, model):
 def log_step(step, action, reward, done, error=None):
     err = error if error else "null"
     done_str = "true" if done else "false"
-    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_str} error={err}", flush=True)
+    print(f"[STEP] step={step} action={action} reward={reward:.4f} done={done_str} error={err}", flush=True)
 
 
 def log_end(success, steps, rewards):
     success_str = "true" if success else "false"
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    rewards_str = ",".join(f"{r:.4f}" for r in rewards)
     print(f"[END] success={success_str} steps={steps} rewards={rewards_str}", flush=True)
 
 
 def debug(msg):
     print(f"[DEBUG] {msg}", file=sys.stderr, flush=True)
+    print(f"[DEBUG] {msg}", flush=True)  # also to stdout so it shows in logs
 
 
 def env_reset():
@@ -101,8 +102,12 @@ def run_tier(client, model, tier: str):
 
     try:
         result = env_reset()
+        debug(f"[RESET RESPONSE RAW] {json.dumps(result)}")
+
         obs = result["observation"]
         done = result.get("done", False)
+        reset_reward = result.get("reward")
+        debug(f"[RESET] done={done} reward_in_response={reset_reward}")
 
         for step in range(1, MAX_STEPS + 1):
             try:
@@ -121,34 +126,59 @@ def run_tier(client, model, tier: str):
 
             try:
                 result = env_step(action)
+                debug(f"[STEP {step} RESPONSE RAW] {json.dumps(result)}")
+
                 obs = result["observation"]
-                reward = float(result.get("reward") or 0.01)
+                reward_raw = result.get("reward")
+                reward = float(reward_raw if reward_raw is not None else 0.01)
+                debug(f"[STEP {step}] reward_raw={reward_raw} reward_float={reward}")
+
                 reward = min(max(reward, 0.01), 0.99)
+                debug(f"[STEP {step}] reward_clamped={reward}")
+
                 done = result.get("done", False)
+
+                # Log episode_score from metadata if present
+                meta = obs.get("metadata", {}) if isinstance(obs, dict) else {}
+                ep_score = meta.get("episode_score", "N/A")
+                debug(f"[STEP {step}] episode_score_in_obs={ep_score} done={done}")
+
                 error = None
             except Exception as e:
                 reward = 0.01
                 done = False
                 error = str(e)
+                debug(f"[STEP {step}] exception: {e}")
 
             rewards.append(reward)
             steps_taken = step
             log_step(step, action["action_type"], reward, done, error)
-            history.append(f"Step {step}: {action['action_type']} clause={action.get('clause_id')} reward={reward:.2f}")
+            history.append(f"Step {step}: {action['action_type']} clause={action.get('clause_id')} reward={reward:.4f}")
 
             if done:
                 break
 
         if not rewards:
+            debug("[SCORE] rewards list empty — defaulting to [0.01]")
             rewards = [0.01]
 
         total = sum(rewards)
         max_possible = len(rewards)
-        score = safe_score(total / max_possible)
+        raw_ratio = total / max_possible
+        score = safe_score(raw_ratio)
+
+        debug(f"[SCORE] rewards={rewards}")
+        debug(f"[SCORE] total={total} max_possible={max_possible} raw_ratio={raw_ratio}")
+        debug(f"[SCORE] safe_score({raw_ratio}) = {score}")
+        debug(f"[SCORE] score > 0? {score > 0} score < 1? {score < 1} in_range? {0 < score < 1}")
+
         success = score >= SUCCESS_THRESHOLD
+        debug(f"[SCORE] success={success}")
 
     except Exception as e:
         debug(f"tier error: {e}")
+        import traceback
+        debug(traceback.format_exc())
         if not rewards:
             rewards = [0.01]
 

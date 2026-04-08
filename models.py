@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Optional, Dict, Any
-from pydantic import Field
+from pydantic import Field, field_validator
 from openenv.core.env_server.types import Action, Observation, State
 
 
@@ -32,3 +32,15 @@ class ContractarenaObservation(Observation):
     clauses_agreed: int = Field(default=0, description="Number of clauses agreed so far")
     clauses_total: int = Field(default=0, description="Total clauses in this deal")
     tier: str = Field(default="easy", description="Current difficulty tier")
+
+    # Explicitly declare reward and done to ensure safe defaults
+    reward: float = Field(default=0.01, description="Reward signal")
+    done: bool = Field(default=False, description="Whether the episode has terminated")
+
+    @field_validator("reward", mode="before")
+    @classmethod
+    def clamp_reward(cls, v):
+        if v is None:
+            return 0.01
+        v = float(v)
+        return round(min(max(v, 0.01), 0.99), 4)
