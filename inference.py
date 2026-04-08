@@ -7,6 +7,7 @@ from openai import OpenAI
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
+API_KEY = os.getenv("API_KEY") or HF_TOKEN
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 
 MAX_STEPS = 15
@@ -165,10 +166,10 @@ def run_tier(client, tier: str):
 
 
 def main():
-    if HF_TOKEN is None:
-        raise ValueError("HF_TOKEN environment variable is required")
+    if API_KEY is None:
+        raise ValueError("API_KEY or HF_TOKEN environment variable is required")
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     for tier in TIERS:
         debug(f"Starting tier: {tier}")
@@ -177,4 +178,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 
