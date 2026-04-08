@@ -139,13 +139,18 @@ def run_tier(client, model, tier: str):
             if done:
                 break
 
+        if not rewards:
+            rewards = [0.01]
+
         total = sum(rewards)
-        max_possible = len(rewards) if rewards else 1
+        max_possible = len(rewards)
         score = safe_score(total / max_possible)
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
         debug(f"tier error: {e}")
+        if not rewards:
+            rewards = [0.01]
 
     finally:
         log_end(success, steps_taken, rewards)

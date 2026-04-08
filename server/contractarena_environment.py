@@ -29,6 +29,11 @@ def clamp(value: float) -> float:
     return round(min(max(value, 0.01), 0.99), 4)
 
 
+def safe_score(value: float) -> float:
+    value = min(max(value, 0.0), 1.0)
+    return round(0.01 + 0.98 * value, 4)
+
+
 class ContractarenaEnvironment(Environment):
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
 
@@ -138,10 +143,13 @@ class ContractarenaEnvironment(Environment):
             reward = clamp(reward + bonus)
             self._episode_rewards[-1] = reward
 
+        # Always clamp final reward before returning
+        reward = clamp(reward)
+
         raw_total = sum(self._episode_rewards)
         max_possible = max(len(self._clauses) * 0.40 + 0.40, 0.01)
         normalized = min(max(raw_total / max_possible, 0.0), 1.0)
-        score = round(0.01 + 0.98 * normalized, 4)
+        score = safe_score(normalized)
 
         if not done and self._clause_index < len(self._clauses):
             next_clause = self._clauses[self._clause_index]
