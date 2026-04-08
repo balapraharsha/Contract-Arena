@@ -140,7 +140,8 @@ class ContractarenaEnvironment(Environment):
 
         raw_total = sum(self._episode_rewards)
         max_possible = max(len(self._clauses) * 0.40 + 0.40, 0.01)
-        score = clamp(raw_total / max_possible)
+        normalized = min(max(raw_total / max_possible, 0.0), 1.0)
+        score = round(0.01 + 0.98 * normalized, 4)
 
         if not done and self._clause_index < len(self._clauses):
             next_clause = self._clauses[self._clause_index]
