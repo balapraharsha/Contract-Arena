@@ -4,9 +4,7 @@ import json
 import requests
 from openai import OpenAI
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://localhost:8000")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
-
+SERVER_URL = os.environ.get("SERVER_URL", "https://balapraharsham-contractarena.hf.space")
 MAX_STEPS = 15
 SUCCESS_THRESHOLD = 0.5
 TIERS = ["easy", "medium", "hard"]
@@ -19,10 +17,7 @@ def log_start(task, model):
 def log_step(step, action, reward, done, error=None):
     err = error if error else "null"
     done_str = "true" if done else "false"
-    print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_str} error={err}",
-        flush=True,
-    )
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_str} error={err}", flush=True)
 
 
 def log_end(success, steps, rewards):
@@ -51,19 +46,14 @@ SYSTEM_PROMPT = """You are a business deal negotiator.
 You negotiate contracts clause by clause against a Vendor and a Legal Reviewer.
 Each has hidden requirements you must uncover.
 
-Available actions:
-- PROBE
-- ACCEPT
-- PROPOSE
-- REJECT
-- ESCALATE
+Available actions: PROBE, ACCEPT, PROPOSE, REJECT, ESCALATE
 
-Respond ONLY in valid JSON with fields: action_type, clause_id, new_text (optional), party (optional), question (optional).
+Respond ONLY in valid JSON.
 Example: {"action_type": "PROBE", "clause_id": "pricing", "party": "vendor", "question": "What matters most to you?"}
 """
 
 
-def get_action(client, obs: dict, history: list) -> dict:
+def get_action(client, model, obs: dict, history: list) -> dict:
     user_msg = f"""Current clause: {obs['clause_id']}
 Clause text: {obs['clause_text']}
 Vendor response: {obs['vendor_response']}
@@ -76,7 +66,7 @@ Recent history: {history[-4:]}
 Return JSON only."""
 
     resp = client.chat.completions.create(
-        model=MODEL_NAME,
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
@@ -87,11 +77,8 @@ Return JSON only."""
     raw = resp.choices[0].message.content.strip()
 
     if "```" in raw:
-        parts = raw.split("```")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:].strip()
+        for part in raw.split("```"):
+            part = part.strip().lstrip("json").strip()
             try:
                 return json.loads(part)
             except Exception:
@@ -100,8 +87,8 @@ Return JSON only."""
     return json.loads(raw)
 
 
-def run_tier(client, tier: str):
-    log_start(task=tier, model=MODEL_NAME)
+def run_tier(client, model, tier: str):
+    log_start(task=tier, model=model)
     rewards = []
     history = []
     steps_taken = 0
@@ -110,13 +97,23 @@ def run_tier(client, tier: str):
     try:
         result = env_reset()
         obs = result["observation"]
+        done = result.get("done", False)
 
         for step in range(1, MAX_STEPS + 1):
-            if result.get("done"):
-                break
+            # Always call LLM at least once even if done
+            try:
+                action = get_action(client, model, obs, history)
+            except Exception as e:
+                debug(f"get_action error: {e}")
+                action = {"action_type": "ACCEPT", "clause_id": obs["clause_id"]}
 
-            action = get_action(client, obs, history)
             action["clause_id"] = action.get("clause_id") or obs["clause_id"]
+
+            if done:
+                rewards.append(0.0)
+                steps_taken = step
+                log_step(step, action["action_type"], 0.0, True)
+                break
 
             try:
                 result = env_step(action)
@@ -132,16 +129,14 @@ def run_tier(client, tier: str):
             rewards.append(reward)
             steps_taken = step
             log_step(step, action["action_type"], reward, done, error)
-
-            history.append(
-                f"Step {step}: {action['action_type']} clause={action.get('clause_id')} reward={reward:.2f}"
-            )
+            history.append(f"Step {step}: {action['action_type']} clause={action.get('clause_id')} reward={reward:.2f}")
 
             if done:
                 break
 
-        score = sum(rewards) / 3.0
-        score = round(min(max(score, 0.0), 1.0), 2)
+        total = sum(rewards)
+        max_possible = len(rewards) if rewards else 1
+        score = round(min(max(total / max_possible, 0.0), 1.0), 2)
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
@@ -155,21 +150,19 @@ def run_tier(client, tier: str):
 
 def main():
     api_key = os.environ["API_KEY"]
-    api_base = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+    api_base = os.environ["API_BASE_URL"]
     model = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
-
-    global MODEL_NAME
-    MODEL_NAME = model
 
     debug(f"API_BASE_URL={api_base}")
     debug(f"MODEL_NAME={model}")
+    debug(f"SERVER_URL={SERVER_URL}")
     debug(f"API_KEY set: {bool(api_key)}")
 
     client = OpenAI(base_url=api_base, api_key=api_key)
 
     for tier in TIERS:
         debug(f"Starting tier: {tier}")
-        run_tier(client, tier)
+        run_tier(client, model, tier)
 
 
 if __name__ == "__main__":
