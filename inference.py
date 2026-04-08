@@ -123,7 +123,7 @@ def run_tier(client, model, tier: str):
                 result = env_step(action)
                 obs = result["observation"]
                 reward = float(result.get("reward") or 0.01)
-                reward = max(reward, 0.01)
+                reward = min(max(reward, 0.01), 0.99)
                 done = result.get("done", False)
                 error = None
             except Exception as e:
