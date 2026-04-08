@@ -135,11 +135,11 @@ class ContractarenaEnvironment(Environment):
 
         if done:
             bonus = self._calculate_final_bonus()
-            reward += bonus
-            self._episode_rewards[-1] += bonus
+            reward = clamp(reward + bonus)
+            self._episode_rewards[-1] = reward
 
         raw_total = sum(self._episode_rewards)
-        max_possible = len(self._clauses) * 0.40 + 0.40
+        max_possible = max(len(self._clauses) * 0.40 + 0.40, 0.01)
         score = clamp(raw_total / max_possible)
 
         if not done and self._clause_index < len(self._clauses):
@@ -159,7 +159,7 @@ class ContractarenaEnvironment(Environment):
             clauses_total=len(self._clauses),
             tier=self._tier,
             done=done,
-            reward=clamp(score if done else reward),
+            reward=reward,
             metadata={
                 "vendor_stance": vendor_stance,
                 "legal_stance": legal_stance,
@@ -191,7 +191,7 @@ class ContractarenaEnvironment(Environment):
         if vendor_stance == "walkout":
             reward -= 0.30
 
-        return reward
+        return clamp(reward)
 
     def _calculate_final_bonus(self) -> float:
         bonus = 0.0
