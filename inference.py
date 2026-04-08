@@ -4,10 +4,8 @@ import json
 import requests
 from openai import OpenAI
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 SERVER_URL = os.environ.get("SERVER_URL", "http://localhost:8000")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
 
 MAX_STEPS = 15
 SUCCESS_THRESHOLD = 0.5
@@ -117,17 +115,7 @@ def run_tier(client, tier: str):
             if result.get("done"):
                 break
 
-            try:
-                action = get_action(client, obs, history)
-            except Exception as e:
-                debug(f"get_action error: {e}")
-                action = {
-                    "action_type": "PROBE",
-                    "clause_id": obs["clause_id"],
-                    "party": "vendor",
-                    "question": "What matters most to you?",
-                }
-
+            action = get_action(client, obs, history)
             action["clause_id"] = action.get("clause_id") or obs["clause_id"]
 
             try:
@@ -166,10 +154,18 @@ def run_tier(client, tier: str):
 
 
 def main():
-    if not API_KEY:
-        raise ValueError("API_KEY environment variable is required")
+    api_key = os.environ["API_KEY"]
+    api_base = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+    model = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    global MODEL_NAME
+    MODEL_NAME = model
+
+    debug(f"API_BASE_URL={api_base}")
+    debug(f"MODEL_NAME={model}")
+    debug(f"API_KEY set: {bool(api_key)}")
+
+    client = OpenAI(base_url=api_base, api_key=api_key)
 
     for tier in TIERS:
         debug(f"Starting tier: {tier}")
