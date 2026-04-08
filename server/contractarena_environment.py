@@ -126,7 +126,7 @@ class ContractarenaEnvironment(Environment):
                 self._agreed[clause_id] = new_text
                 self._clause_index = min(self._clause_index + 1, len(self._clauses) - 1)
 
-        self._episode_rewards.append(reward)
+        self._episode_rewards.append(clamp(reward))
 
         all_agreed = len(self._agreed) == len(self._clauses)
         walkout = vendor_stance == "walkout"
@@ -212,7 +212,7 @@ class ContractarenaEnvironment(Environment):
         if self._rounds_used < self._round_budget:
             bonus += 0.05
 
-        return bonus
+        return clamp(bonus)
 
     @property
     def state(self) -> State:
