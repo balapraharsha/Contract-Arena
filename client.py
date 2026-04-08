@@ -6,7 +6,7 @@
 
 """Contractarena Environment Client."""
 
-from typing import Dict
+from typing import Dict, Any
 
 from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
@@ -24,76 +24,41 @@ class ContractarenaEnv(
     This client maintains a persistent WebSocket connection to the environment server,
     enabling efficient multi-step interactions with lower latency.
     Each client instance has its own dedicated environment session on the server.
-
-    Example:
-        >>> # Connect to a running server
-        >>> with ContractarenaEnv(base_url="http://localhost:8000") as client:
-        ...     result = client.reset()
-        ...     print(result.observation.echoed_message)
-        ...
-        ...     result = client.step(ContractarenaAction(message="Hello!"))
-        ...     print(result.observation.echoed_message)
-
-    Example with Docker:
-        >>> # Automatically start container and connect
-        >>> client = ContractarenaEnv.from_docker_image("contractarena-env:latest")
-        >>> try:
-        ...     result = client.reset()
-        ...     result = client.step(ContractarenaAction(message="Test"))
-        ... finally:
-        ...     client.close()
     """
 
-    def _step_payload(self, action: ContractarenaAction) -> Dict:
+    def _step_payload(self, action: ContractarenaAction) -> Dict[str, Any]:
         """
         Convert ContractarenaAction to JSON payload for step message.
-
-        Args:
-            action: ContractarenaAction instance
-
-        Returns:
-            Dictionary representation suitable for JSON encoding
         """
         return {
             "message": action.message,
         }
 
-    def _parse_result(self, payload: Dict) -> StepResult[ContractarenaObservation]:
+    def _parse_result(self, payload: Dict[str, Any]) -> StepResult[ContractarenaObservation]:
         """
         Parse server response into StepResult[ContractarenaObservation].
-
-        Args:
-            payload: JSON response data from server
-
-        Returns:
-            StepResult with ContractarenaObservation
         """
-        obs_data = payload.get("observation", {})
+        obs_data = payload.get("observation") or {}
+
         observation = ContractarenaObservation(
             echoed_message=obs_data.get("echoed_message", ""),
             message_length=obs_data.get("message_length", 0),
             done=payload.get("done", False),
-            reward=payload.get("reward"),
+            reward=payload.get("reward", 0.0),
             metadata=obs_data.get("metadata", {}),
         )
 
         return StepResult(
             observation=observation,
-            reward=payload.get("reward"),
+            reward=payload.get("reward", 0.0),
             done=payload.get("done", False),
         )
 
-    def _parse_state(self, payload: Dict) -> State:
+    def _parse_state(self, payload: Dict[str, Any]) -> State:
         """
         Parse server response into State object.
-
-        Args:
-            payload: JSON response from state request
-
-        Returns:
-            State object with episode_id and step_count
         """
         return State(
-            episode_id=payload.get("episode_id"),
+            episode_id=payload.get("episode_id", ""),
             step_count=payload.get("step_count", 0),
         )
