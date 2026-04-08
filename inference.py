@@ -4,11 +4,10 @@ import json
 import requests
 from openai import OpenAI
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
-HF_TOKEN = os.getenv("HF_TOKEN")
-API_KEY = os.getenv("API_KEY") or HF_TOKEN
-SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
+SERVER_URL = os.environ.get("SERVER_URL", "http://localhost:8000")
 
 MAX_STEPS = 15
 SUCCESS_THRESHOLD = 0.5
@@ -61,7 +60,8 @@ Available actions:
 - REJECT
 - ESCALATE
 
-Respond ONLY in valid JSON.
+Respond ONLY in valid JSON with fields: action_type, clause_id, new_text (optional), party (optional), question (optional).
+Example: {"action_type": "PROBE", "clause_id": "pricing", "party": "vendor", "question": "What matters most to you?"}
 """
 
 
@@ -77,39 +77,29 @@ Recent history: {history[-4:]}
 
 Return JSON only."""
 
-    try:
-        resp = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=300,
-            temperature=0.2,
-        )
-        raw = resp.choices[0].message.content.strip()
+    resp = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ],
+        max_tokens=300,
+        temperature=0.2,
+    )
+    raw = resp.choices[0].message.content.strip()
 
-        if "```" in raw:
-            parts = raw.split("```")
-            for part in parts:
-                part = part.strip()
-                if part.startswith("json"):
-                    part = part[4:].strip()
-                try:
-                    return json.loads(part)
-                except Exception:
-                    continue
+    if "```" in raw:
+        parts = raw.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            try:
+                return json.loads(part)
+            except Exception:
+                continue
 
-        return json.loads(raw)
-
-    except Exception as e:
-        debug(f"model error: {e}")
-        return {
-            "action_type": "PROBE",
-            "clause_id": obs["clause_id"],
-            "party": "vendor",
-            "question": "What matters most to you?",
-        }
+    return json.loads(raw)
 
 
 def run_tier(client, tier: str):
@@ -127,7 +117,17 @@ def run_tier(client, tier: str):
             if result.get("done"):
                 break
 
-            action = get_action(client, obs, history)
+            try:
+                action = get_action(client, obs, history)
+            except Exception as e:
+                debug(f"get_action error: {e}")
+                action = {
+                    "action_type": "PROBE",
+                    "clause_id": obs["clause_id"],
+                    "party": "vendor",
+                    "question": "What matters most to you?",
+                }
+
             action["clause_id"] = action.get("clause_id") or obs["clause_id"]
 
             try:
@@ -166,8 +166,8 @@ def run_tier(client, tier: str):
 
 
 def main():
-    if API_KEY is None:
-        raise ValueError("API_KEY or HF_TOKEN environment variable is required")
+    if not API_KEY:
+        raise ValueError("API_KEY environment variable is required")
 
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
