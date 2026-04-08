@@ -10,6 +10,11 @@ SUCCESS_THRESHOLD = 0.5
 TIERS = ["easy", "medium", "hard"]
 
 
+def safe_score(value: float) -> float:
+    value = min(max(value, 0.0), 1.0)
+    return round(0.01 + 0.98 * value, 4)
+
+
 def log_start(task, model):
     print(f"[START] task={task} env=contractarena model={model}", flush=True)
 
@@ -100,7 +105,6 @@ def run_tier(client, model, tier: str):
         done = result.get("done", False)
 
         for step in range(1, MAX_STEPS + 1):
-            # Always call LLM at least once even if done
             try:
                 action = get_action(client, model, obs, history)
             except Exception as e:
@@ -110,19 +114,20 @@ def run_tier(client, model, tier: str):
             action["clause_id"] = action.get("clause_id") or obs["clause_id"]
 
             if done:
-                rewards.append(0.0)
+                rewards.append(0.01)
                 steps_taken = step
-                log_step(step, action["action_type"], 0.0, True)
+                log_step(step, action["action_type"], 0.01, True)
                 break
 
             try:
                 result = env_step(action)
                 obs = result["observation"]
-                reward = float(result.get("reward") or 0.0)
+                reward = float(result.get("reward") or 0.01)
+                reward = max(reward, 0.01)
                 done = result.get("done", False)
                 error = None
             except Exception as e:
-                reward = 0.0
+                reward = 0.01
                 done = False
                 error = str(e)
 
@@ -136,7 +141,7 @@ def run_tier(client, model, tier: str):
 
         total = sum(rewards)
         max_possible = len(rewards) if rewards else 1
-        score = round(min(max(total / max_possible, 0.0), 1.0), 2)
+        score = safe_score(total / max_possible)
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
