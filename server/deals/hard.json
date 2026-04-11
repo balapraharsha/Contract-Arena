@@ -20,11 +20,35 @@
   "vendor_hidden": {
     "priority": "earnout_structure",
     "value": "revenue_based",
-    "walkout_threshold": 2
+    "walkout_threshold": 2,
+    "reservation_price": 0.60,
+    "batna": "seek alternative acquirer at lower valuation",
+    "batna_utility": 0.45
   },
   "legal_hidden": {
     "redline": "liability_exposure",
     "value": "cap_at_deal_value",
-    "flagged_patterns": ["unlimited liability", "no cap", "fully liable", "uncapped"]
+    "flagged_patterns": ["unlimited liability", "no cap", "fully liable", "uncapped"],
+    "reservation_price": 0.65
+  },
+  "zopa": {
+    "exists": true,
+    "vendor_reservation_price": 0.60,
+    "agent_reservation_price": 0.55,
+    "pareto_frontier": [
+      {"vendor_utility": 0.92, "agent_utility": 0.55},
+      {"vendor_utility": 0.80, "agent_utility": 0.68},
+      {"vendor_utility": 0.70, "agent_utility": 0.78},
+      {"vendor_utility": 0.62, "agent_utility": 0.88},
+      {"vendor_utility": 0.60, "agent_utility": 0.90}
+    ],
+    "optimal_joint_utility": 0.74,
+    "description": "Revenue-based earnout + deal-value liability cap is Pareto-optimal"
+  },
+  "coalition": {
+    "active": true,
+    "description": "Vendor and Legal pre-agreed: if liability is uncapped, vendor also rejects",
+    "trigger_pattern": "uncapped",
+    "coalition_penalty": 0.15
   }
 }

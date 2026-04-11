@@ -15,11 +15,29 @@
   "vendor_hidden": {
     "priority": "payment_terms",
     "value": "net_30",
-    "walkout_threshold": 3
+    "walkout_threshold": 3,
+    "reservation_price": 0.50,
+    "batna": "sell to alternative buyer at 5% lower margin",
+    "batna_utility": 0.40
   },
   "legal_hidden": {
     "redline": "unlimited_liability",
     "value": "cap_at_contract_value",
-    "flagged_patterns": ["unlimited liability", "fully liable", "no cap", "uncapped"]
+    "flagged_patterns": ["unlimited liability", "fully liable", "no cap", "uncapped"],
+    "reservation_price": 0.55
+  },
+  "zopa": {
+    "exists": true,
+    "vendor_reservation_price": 0.50,
+    "agent_reservation_price": 0.45,
+    "pareto_frontier": [
+      {"vendor_utility": 0.90, "agent_utility": 0.50},
+      {"vendor_utility": 0.80, "agent_utility": 0.65},
+      {"vendor_utility": 0.70, "agent_utility": 0.75},
+      {"vendor_utility": 0.55, "agent_utility": 0.88},
+      {"vendor_utility": 0.50, "agent_utility": 0.90}
+    ],
+    "optimal_joint_utility": 0.725,
+    "description": "Net-30 payment + liability cap creates mutual benefit"
   }
 }

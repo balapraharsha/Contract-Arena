@@ -11,11 +11,29 @@
   "vendor_hidden": {
     "priority": "billing_cycle",
     "value": "monthly",
-    "walkout_threshold": 3
+    "walkout_threshold": 3,
+    "reservation_price": 0.45,
+    "batna": "sign with competitor at 10% higher cost",
+    "batna_utility": 0.35
   },
   "legal_hidden": {
     "redline": "data_retention",
     "value": "max_90_days",
-    "flagged_patterns": ["unlimited retention", "retain indefinitely", "no deletion"]
+    "flagged_patterns": ["unlimited retention", "retain indefinitely", "no deletion"],
+    "reservation_price": 0.50
+  },
+  "zopa": {
+    "exists": true,
+    "vendor_reservation_price": 0.45,
+    "agent_reservation_price": 0.40,
+    "pareto_frontier": [
+      {"vendor_utility": 0.95, "agent_utility": 0.45},
+      {"vendor_utility": 0.85, "agent_utility": 0.60},
+      {"vendor_utility": 0.75, "agent_utility": 0.75},
+      {"vendor_utility": 0.60, "agent_utility": 0.85},
+      {"vendor_utility": 0.45, "agent_utility": 0.92}
+    ],
+    "optimal_joint_utility": 0.75,
+    "description": "Monthly billing + 90-day data retention maximises joint utility"
   }
 }

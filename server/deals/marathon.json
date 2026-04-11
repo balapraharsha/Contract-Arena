@@ -1,0 +1,59 @@
+{
+  "tier": "marathon",
+  "deal_name": "Multi-Deal Marathon",
+  "round_budget": 40,
+  "probe_budget": 6,
+  "description": "Three sequential deals with the same vendor family. Knowledge from earlier deals partially transfers.",
+  "deals": [
+    {
+      "deal_id": "deal_1",
+      "deal_name": "Cloud Services MSA",
+      "clauses": [
+        {"id": "sla",      "text": "99.9% uptime SLA with hourly service credits."},
+        {"id": "pricing",  "text": "Usage-based pricing, invoiced monthly."},
+        {"id": "security", "text": "Vendor complies with SOC2 Type II standards."},
+        {"id": "exit",     "text": "Data portability guaranteed within 30 days of termination."}
+      ],
+      "vendor_hidden": {"priority": "contract_length", "value": "annual", "walkout_threshold": 3},
+      "legal_hidden":  {"redline": "data_portability", "value": "30_days", "flagged_patterns": ["no export", "lock-in", "irrevocable"]}
+    },
+    {
+      "deal_id": "deal_2",
+      "deal_name": "Professional Services SOW",
+      "transfer_hint": "Same vendor — preference for long-term commitments likely carries over",
+      "clauses": [
+        {"id": "scope",    "text": "Vendor delivers 200 hours of consulting services."},
+        {"id": "timeline", "text": "Project completes within 90 days of kickoff."},
+        {"id": "payment",  "text": "50% upfront, 50% on delivery."},
+        {"id": "ip",       "text": "All deliverables become property of client on payment."}
+      ],
+      "vendor_hidden": {"priority": "engagement_model", "value": "retainer", "walkout_threshold": 3},
+      "legal_hidden":  {"redline": "ip_assignment", "value": "full_transfer", "flagged_patterns": ["joint ownership", "vendor retains", "shared ip"]}
+    },
+    {
+      "deal_id": "deal_3",
+      "deal_name": "Enterprise License Renewal",
+      "transfer_hint": "Legal team remembers redlines from Deal 1 — irrevocable still flagged",
+      "clauses": [
+        {"id": "seats",   "text": "License covers up to 500 named users."},
+        {"id": "term",    "text": "License term: 12 months with auto-renewal."},
+        {"id": "support", "text": "Priority support included with 4-hour SLA."},
+        {"id": "audit",   "text": "Vendor may audit usage annually with 14-day notice."}
+      ],
+      "vendor_hidden": {"priority": "renewal_terms", "value": "multi_year", "walkout_threshold": 2},
+      "legal_hidden":  {"redline": "audit_scope", "value": "usage_only", "flagged_patterns": ["unlimited audit", "full access", "no audit boundary", "irrevocable"]}
+    }
+  ],
+  "zopa": {
+    "exists": true,
+    "vendor_reservation_price": 0.55,
+    "agent_reservation_price": 0.50,
+    "pareto_frontier": [
+      {"vendor_utility": 0.85, "agent_utility": 0.55},
+      {"vendor_utility": 0.72, "agent_utility": 0.70},
+      {"vendor_utility": 0.60, "agent_utility": 0.82}
+    ],
+    "optimal_joint_utility": 0.72,
+    "description": "Long-term commitment framing across all three deals maximises joint utility"
+  }
+}
