@@ -1,0 +1,51 @@
+{
+  "tier": "expert",
+  "deal_name": "Multi-Party SaaS Licensing & Compliance Agreement",
+  "round_budget": 25,
+  "probe_budget": 4,
+  "clauses": [
+    {"id": "license_scope",  "text": "License grants non-exclusive right to use software in licensee primary territory."},
+    {"id": "royalties",      "text": "Royalty rate: 8% of gross revenue derived from licensed product."},
+    {"id": "sublicensing",   "text": "Sublicensing requires written consent of all parties."},
+    {"id": "data_handling",  "text": "All user data processed under applicable jurisdiction law."},
+    {"id": "audit_rights",   "text": "Licensor may audit usage logs annually with 30-day notice."},
+    {"id": "liability",      "text": "Each party liability capped at fees paid in prior 12 months."},
+    {"id": "compliance",     "text": "Licensee ensures regulatory compliance in all deployment regions."},
+    {"id": "ip_ownership",   "text": "Derivative works owned jointly; commercialisation requires consent."},
+    {"id": "termination",    "text": "Either party may terminate for material breach with 60-day cure period."},
+    {"id": "governing_law",  "text": "Agreement governed by laws of Singapore."}
+  ],
+  "vendor_hidden": {
+    "priority": "royalty_structure",
+    "value": "tiered_royalty",
+    "walkout_threshold": 3,
+    "reservation_price": 0.55,
+    "batna": "license to alternative partner at 5% lower royalty",
+    "batna_utility": 0.40
+  },
+  "legal_hidden": {
+    "redline": "data_sovereignty",
+    "value": "gdpr_compliant",
+    "flagged_patterns": ["unrestricted transfer", "no data boundary", "store anywhere", "unlimited retention"],
+    "reservation_price": 0.60
+  },
+  "compliance_hidden": {
+    "redline": "audit_frequency",
+    "value": "quarterly_audit",
+    "flagged_patterns": ["no audit", "waive audit", "audit-free", "exempt from audit"],
+    "required_keyword": "quarterly_audit",
+    "stakeholder": "Compliance Officer"
+  },
+  "zopa": {
+    "exists": true,
+    "vendor_reservation_price": 0.55,
+    "agent_reservation_price": 0.50,
+    "pareto_frontier": [
+      {"vendor_utility": 0.88, "agent_utility": 0.55},
+      {"vendor_utility": 0.75, "agent_utility": 0.70},
+      {"vendor_utility": 0.65, "agent_utility": 0.80},
+      {"vendor_utility": 0.55, "agent_utility": 0.88}
+    ],
+    "optimal_joint_utility": 0.725
+  }
+}

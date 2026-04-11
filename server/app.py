@@ -1,24 +1,15 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
 """
-FastAPI application for the Contractarena environment.
-
-Exposes the environment through OpenEnv-compatible HTTP/WebSocket endpoints.
+FastAPI app for ContractArena.
+Cycles through all 5 tiers on successive /reset calls:
+  easy → medium → hard → expert → marathon → easy → ...
 """
-
 from __future__ import annotations
+import itertools
 
 try:
     from openenv.core.env_server.http_server import create_app
-except Exception as e:  # pragma: no cover
-    raise ImportError(
-        "openenv is required for the web interface. "
-        "Install dependencies and ensure the OpenEnv package is available."
-    ) from e
+except Exception as e:
+    raise ImportError("openenv is required.") from e
 
 try:
     from models import ContractarenaAction, ContractarenaObservation
@@ -27,9 +18,15 @@ except ImportError:
     from ..models import ContractarenaAction, ContractarenaObservation
     from .contractarena_environment import ContractarenaEnvironment
 
+_TIER_CYCLE = itertools.cycle(["easy", "medium", "hard", "expert", "marathon"])
+
+
+def env_factory() -> ContractarenaEnvironment:
+    return ContractarenaEnvironment(tier=next(_TIER_CYCLE))
+
 
 app = create_app(
-    ContractarenaEnvironment,
+    env_factory,
     ContractarenaAction,
     ContractarenaObservation,
     env_name="contractarena",
@@ -39,7 +36,6 @@ app = create_app(
 
 def main(host: str = "0.0.0.0", port: int = 8000) -> None:
     import uvicorn
-
     uvicorn.run(app, host=host, port=port)
 
 
